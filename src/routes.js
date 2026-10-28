@@ -86,7 +86,7 @@ appRoutes.get('/caddy/ask', async (req, res) => {
 
 // Webhooks from SaaS Custom Domains.
 // Events: https://docs.saascustomdomains.com/webhooks
-const STATUS_BY_EVENT = {
+const UPDATES_BY_EVENT = {
   domain_dns_proxy_record_valid: { status: 'active' },
   domain_dns_proxy_record_invalid: { status: 'pending' },
   tls_certificate_issued: { httpsReady: true },
@@ -99,10 +99,11 @@ appRoutes.post(webhookPath, express.json(), async (req, res) => {
     return res.sendStatus(401)
   }
 
-  const data = STATUS_BY_EVENT[req.body?.event]
+  // req.body is undefined in Express 5 if the body wasn't JSON
+  const data = UPDATES_BY_EVENT[req.body?.event]
   const uuid = req.body?.domain?.uuid
-  // Check uuid: Prisma treats `providerUuid: undefined` as no filter at
-  // all, and updateMany would then change every domain.
+  // Prisma reads `providerUuid: undefined` as no filter at all, so
+  // without this check updateMany would change every domain
   if (data && typeof uuid === 'string') {
     await prisma.customDomain.updateMany({
       where: { providerUuid: uuid },

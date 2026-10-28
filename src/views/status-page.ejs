@@ -3,7 +3,7 @@
 <head>
   <%- include('partials/head') %>
   <title><%= company.name %> status</title>
-  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="canonical" href="https://<%= host %>/">
 </head>
 <body>
   <h1><%= company.name %> status</h1>
@@ -22,13 +22,13 @@
     <input name="email" type="email" required placeholder="you@example.com" aria-label="Email">
     <button>Get updates</button>
   </form>
-  <% if (subscribed) { %>
+  <% if (locals.subscribed) { %>
     <p role="status">Subscribed to <%= company.name %> status updates.</p>
   <% } %>
-  <% if (error) { %>
+  <% if (locals.error) { %>
     <p role="alert" class="error"><%= error %></p>
   <% } %>
 
-  <p class="muted">Served on <%= canonicalUrl %></p>
+  <p class="muted">Served on <%= host %></p>
 </body>
 </html>

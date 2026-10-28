@@ -33,7 +33,8 @@ model CustomDomain {
 model Component {
   id        Int     @id @default(autoincrement())
   name      String
-  status    String  @default("operational") // "operational", "degraded" or "outage"
+  // "operational", "degraded" or "outage"
+  status    String  @default("operational")
   position  Int     @default(0)
   company   Company @relation(fields: [companyId], references: [id])
   companyId Int

@@ -1,7 +1,7 @@
 import { domainToASCII } from 'node:url'
 
-// Hostnames your own traffic arrives on (the dashboard, webhooks,
-// Caddy's ask request). Everything else is a customer's domain.
+// Every hostname your own traffic arrives on, including internal
+// names your platform, webhooks or Caddy use to reach the app.
 export const APP_HOSTS = new Set(
   (process.env.APP_HOSTS ?? 'localhost')
     .split(',')
@@ -9,14 +9,11 @@ export const APP_HOSTS = new Set(
     .filter(Boolean),
 )
 
-// Customers can't claim this domain or any subdomain of it.
-const APP_DOMAIN = (process.env.APP_DOMAIN ?? 'statuspage.com').toLowerCase()
+// Customers can't claim this domain or any subdomain of it
+const APP_DOMAIN = process.env.APP_DOMAIN ?? 'statuspage.com'
 
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/
 
-// "Status.Intercom.com." -> "status.intercom.com", "bücher.de" ->
-// "xn--bcher-kva.de". Returns null for anything that isn't a domain a
-// customer can connect.
 export function normalizeHost(input) {
   const host = domainToASCII(String(input).trim().replace(/\.$/, ''))
   const labels = host.split('.')
@@ -24,7 +21,7 @@ export function normalizeHost(input) {
     host.length <= 253 &&
     labels.length >= 2 &&
     labels.every((label) => LABEL.test(label)) &&
-    // domainToASCII turns "1.2.3" into "1.2.0.3"; IPs aren't domains.
+    // domainToASCII turns "1.2.3" into "1.2.0.3"; IPs aren't domains
     !/^\d+$/.test(labels.at(-1))
   if (!valid) return null
 

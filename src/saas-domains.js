@@ -1,7 +1,8 @@
 // A small client for the SaaS Custom Domains API, using the built-in
-// fetch. Docs: https://docs.saascustomdomains.com/custom-domains
-// SCD_API_URL is only set to point at the local mock.
-const BASE = `${process.env.SCD_API_URL ?? 'https://app.saascustomdomains.com'}/api/v1/accounts`
+// fetch. SCD_API_URL is only set to point at the local mock.
+const API_URL =
+  process.env.SCD_API_URL ?? 'https://app.saascustomdomains.com'
+const BASE = `${API_URL}/api/v1/accounts`
 
 export class SaasDomainsError extends Error {
   constructor(status, detail) {
@@ -42,8 +43,9 @@ export const saasDomains = {
     try {
       await request('DELETE', `${domainsPath()}/${uuid}`)
     } catch (err) {
-      // Already gone (say, deleted in the dashboard) is what we wanted.
-      if (!(err instanceof SaasDomainsError && err.status === 404)) throw err
+      // Already gone, say deleted in the dashboard, is fine
+      const gone = err instanceof SaasDomainsError && err.status === 404
+      if (!gone) throw err
     }
   },
 }

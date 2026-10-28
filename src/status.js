@@ -12,6 +12,6 @@ export async function getStatusData(companyId) {
     where: { companyId },
     orderBy: { position: 'asc' },
   })
-  const worst = Math.max(0, ...components.map((c) => SEVERITY[c.status] ?? 0))
-  return { components, summary: SUMMARY[worst] }
+  const levels = components.map((c) => SEVERITY[c.status] ?? 0)
+  return { components, summary: SUMMARY[Math.max(0, ...levels)] }
 }
