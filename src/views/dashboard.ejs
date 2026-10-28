@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <title>Status pages</title>
+</head>
+<body>
+  <h1>Status pages</h1>
+  <p class="muted">Connect a custom domain to each company's status page.</p>
+
+  <% for (const company of companies) { %>
+  <section data-testid="company-<%= company.slug %>">
+    <h2><%= company.name %></h2>
+    <ul>
+      <% for (const domain of company.domains) { %>
+      <li data-testid="domain-<%= domain.host %>">
+        <span class="mono"><%= domain.host %></span>
+        <% if (domain.status !== 'active') { %>
+          <span class="badge wait">Waiting for DNS</span>
+        <% } else if (!domain.httpsReady) { %>
+          <span class="badge wait">DNS OK, waiting for HTTPS</span>
+        <% } else { %>
+          <span class="badge ok">Live</span>
+        <% } %>
+        <form method="post" action="/domains/<%= domain.id %>/check" class="grow">
+          <button class="link">Check DNS</button>
+        </form>
+        <form method="post" action="/domains/<%= domain.id %>/remove">
+          <button class="link">Remove</button>
+        </form>
+      </li>
+      <% } %>
+    </ul>
+    <form method="post" action="/companies/<%= company.id %>/domains" class="row">
+      <input name="host" required placeholder="status.example.com" aria-label="Domain">
+      <input name="dnsContact" type="email" placeholder="DNS contact (optional)" aria-label="DNS contact email">
+      <button>Add domain</button>
+      <% if (errors[company.id]) { %>
+        <p role="alert" class="error"><%= errors[company.id] %></p>
+      <% } %>
+    </form>
+  </section>
+  <% } %>
+</body>
+</html>

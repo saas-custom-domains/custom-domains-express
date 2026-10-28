@@ -1,0 +1,36 @@
+{
+  "name": "custom-domains-express",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Custom domains for a multi-tenant Express 5 app, with SaaS Custom Domains or your own Caddy",
+  "type": "module",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:setup": "prisma migrate deploy && prisma db seed",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --env-file=tests/test.env tests/setup-db.js && node --env-file=tests/test.env --test --test-concurrency=1 'tests/unit/*.test.js'",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "prisma": "^7.10.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "express-session": "^1.19.0",
+    "supertest": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "license": "MIT",
+  "allowScripts": {
+    "better-sqlite3": true,
+    "@prisma/engines": true,
+    "prisma": true
+  }
+}

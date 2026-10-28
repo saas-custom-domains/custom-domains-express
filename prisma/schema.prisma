@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// A Company is the tenant: one status page per company.
+model Company {
+  id              Int            @id @default(autoincrement())
+  slug            String         @unique
+  name            String
+  // Gets the DNS instructions email when a domain is added (optional).
+  dnsContactEmail String?
+  domains         CustomDomain[]
+  components      Component[]
+  subscribers     Subscriber[]
+}
+
+model CustomDomain {
+  id           Int      @id @default(autoincrement())
+  host         String   @unique
+  status       String   @default("pending") // "pending" or "active"
+  httpsReady   Boolean  @default(false)
+  providerUuid String?  @unique
+  company      Company  @relation(fields: [companyId], references: [id])
+  companyId    Int
+  createdAt    DateTime @default(now())
+}
+
+model Component {
+  id        Int     @id @default(autoincrement())
+  name      String
+  status    String  @default("operational") // "operational", "degraded" or "outage"
+  position  Int     @default(0)
+  company   Company @relation(fields: [companyId], references: [id])
+  companyId Int
+}
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId Int
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, email])
+}
