@@ -1,4 +1,4 @@
-FROM node:24-slim
+FROM node:25-slim
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 DATABASE_URL=file:/app/data/app.db \
     NPM_CONFIG_UPDATE_NOTIFIER=false
