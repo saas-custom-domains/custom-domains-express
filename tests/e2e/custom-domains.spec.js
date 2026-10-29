@@ -41,8 +41,8 @@ test('connect a domain, serve the status page through the proxy, remove it', asy
   expect(new URL(page.url()).host).toBe(host)
 
   // Your app's routes don't exist on a customer's domain.
-  const caddyAsk = await page.goto(customerUrl(host, '/caddy/ask'))
-  expect(caddyAsk?.status()).toBe(404)
+  const webhook = await page.goto(customerUrl(host, '/webhooks/saas-domains'))
+  expect(webhook?.status()).toBe(404)
 
   await page.goto('/')
   await row.getByRole('button', { name: 'Remove' }).click()

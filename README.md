@@ -10,7 +10,7 @@ What's in it:
 - Requests from the [SaaS Custom Domains](https://saascustomdomains.com) proxy are accepted only with the upstream's auth token, so nobody can claim a customer's domain by sending `X-Served-For` themselves.
 - A subscribe form on each status page that works on the customer's domain, with an `Origin` check against that domain.
 - A dashboard to add a domain, check its DNS and remove it. Webhooks update the status.
-- Two ways to run HTTPS: SaaS Custom Domains (default), or your own Caddy with on-demand TLS.
+- HTTPS for every customer domain through SaaS Custom Domains, which issues and renews the certificates.
 - Prisma with SQLite, so it runs in one container.
 
 ## Run it in 2 minutes
@@ -31,18 +31,21 @@ docker compose up --build
 
 The mock is [scd-mock](https://github.com/saas-custom-domains/scd-mock): a local copy of the SaaS Custom Domains API and proxy, so you can try everything without an account.
 
-### Without Docker
+### Run the app outside Docker
 
-Node.js 22.18 or later:
+Node.js 22.18 or later. Keep the mock in Docker and point it at your machine:
 
 ```bash
 npm install            # also runs prisma generate
-cp .env.example .env   # then set DOMAINS_PROVIDER=caddy
+cp .env.example .env
 npm run db:setup       # migrations + two example companies
-npm run dev
+SCD_MOCK_UPSTREAM_HOST=host.docker.internal \
+SCD_MOCK_WEBHOOK_URL=http://host.docker.internal:3000/webhooks/saas-domains \
+  docker compose up scd-mock
+npm run dev            # in another terminal
 ```
 
-Add `intercom.localhost`, click **Check DNS** (`*.localhost` counts as pointed at you) and open http://intercom.localhost:3000. With `DOMAINS_PROVIDER=caddy`, adding a domain doesn't call the API, so you don't need the mock.
+Add `intercom.localhost` at http://localhost:3000 and open http://intercom.localhost (port 80 is the mock proxy). `APP_HOSTS` in `.env.example` includes `host.docker.internal`, because that's the `Host` the mock's webhooks arrive with.
 
 ## How it works
 
@@ -59,11 +62,10 @@ The proxy sends your app's own hostname in `Host` and `X-Forwarded-Host`, so you
 | --- | --- |
 | `src/app.js` | Health check, the proxy token check, then `customDomains`, then your app's routes |
 | `src/custom-domains.js` | `hostFrom()`, the company lookup and the customer-facing router |
-| `src/routes.js` | Dashboard, Caddy's ask endpoint, webhook endpoint |
-| `src/domains.js` | Add, check and remove domains with either provider |
+| `src/routes.js` | Dashboard and webhook endpoint |
+| `src/domains.js` | Add, check and remove domains through the API |
 | `src/saas-domains.js` | API client for SaaS Custom Domains (built-in `fetch`) |
 | `src/hosts.js` | `normalizeHost()` and the domains customers can't claim |
-| `src/dns-check.js` | DNS check when you run your own proxy |
 | `prisma/schema.prisma` | `Company`, `CustomDomain` (unique `host`), components, subscribers |
 | `scripts/create-upstream.js` | One-off: register your app with SaaS Custom Domains |
 
@@ -75,11 +77,11 @@ The proxy sends your app's own hostname in `Host` and `X-Forwarded-Host`, so you
 
 With `app.set('trust proxy', true)`, `req.hostname` comes from `X-Forwarded-Host`, and Express trusts it from any client. When you pick the tenant by hostname, that means a request can choose its tenant with one header, past anything in front of you that routes or caches by `Host`. Express only checks the address of the connection, so a hop count such as `1` has the same effect when clients can reach the app directly.
 
-This app sets `trust proxy` from `TRUST_PROXY`, default `loopback` (Caddy on the same machine). `tests/unit/app.test.js` shows `true` letting a client switch tenants, and the end-to-end tests check that a direct `X-Forwarded-Host` doesn't.
+This app sets `trust proxy` from `TRUST_PROXY`, default `loopback`; set it to your load balancer's address or subnet. `tests/unit/app.test.js` shows `true` letting a client switch tenants, and the end-to-end tests check that a direct `X-Forwarded-Host` doesn't.
 
 ### Secure cookies that never get set
 
-`express-session` with `cookie: { secure: true }` sends no `Set-Cookie` at all when `req.secure` is `false`, and `req.secure` is `false` behind a TLS-terminating proxy you don't trust. There's no error; only `DEBUG=express-session` prints `not secured`. Trust the proxy that terminates TLS for you (your load balancer, or Caddy), not every client. `tests/unit/express-gotchas.test.js` covers both cases.
+`express-session` with `cookie: { secure: true }` sends no `Set-Cookie` at all when `req.secure` is `false`, and `req.secure` is `false` behind a TLS-terminating proxy you don't trust. There's no error; only `DEBUG=express-session` prints `not secured`. Trust the proxy that terminates TLS for you (your load balancer), not every client. `tests/unit/express-gotchas.test.js` covers both cases.
 
 Leave the cookie's `domain` unset. A cookie with `domain: '.statuspage.com'` set on `status.intercom.com` is dropped by the browser without a word (checked in Chromium). Host-only cookies work on every customer domain.
 
@@ -95,7 +97,7 @@ If your app needs the customer's domain for something, take it from the company 
 
 ### Health checks and webhooks hit the host check
 
-Load balancers call the health check by IP address, and anything that isn't one of your hosts is a customer domain, so `/up` would get `404 Unknown domain`. It's registered before `customDomains`. In the same way, `APP_HOSTS` has to list every hostname your own traffic arrives on: in `compose.yaml` that's `app`, because webhooks from the mock and Caddy's ask request arrive as `Host: app:3000`.
+Load balancers call the health check by IP address, and anything that isn't one of your hosts is a customer domain, so `/up` would get `404 Unknown domain`. It's registered before `customDomains`. In the same way, `APP_HOSTS` has to list every hostname your own traffic arrives on: in `compose.yaml` that's `app`, because webhooks from the mock arrive as `Host: app:3000`.
 
 ### Smaller ones
 
@@ -104,20 +106,6 @@ Load balancers call the health check by IP address, and anything that isn't one 
 - `String(undefined)` is `"undefined"`: a token check against an unset environment variable accepts the token `undefined`. `safeEqual()` rejects everything when the secret is unset.
 - Prisma treats `where: { providerUuid: undefined }` as no filter, so `updateMany` on a webhook without a domain UUID would update every domain. The webhook handler checks the UUID first.
 - `domainToASCII()` lowercases and converts to punycode, but accepts `-acme.com`, `192.0.2.1` and labels over 63 characters, and turns `1.2.3` into `1.2.0.3`. `normalizeHost()` validates each label too.
-
-## Run your own proxy instead (Caddy)
-
-```bash
-DOMAINS_PROVIDER=caddy docker compose --profile diy up --build
-```
-
-Add `intercom.localhost` in the dashboard and click **Check DNS**, then:
-
-```bash
-curl -k https://intercom.localhost/
-```
-
-Caddy asks `/caddy/ask` before issuing a certificate, and only active domains get one; for any other name the TLS handshake fails. Locally it uses Caddy's internal CA, hence `-k`. Caddy passes the original `Host` through, so `req.hostname` is the customer's domain. In production you'd remove `internal` from the `Caddyfile`, run it on a server with a static IP, and then own certificate storage, renewals, rate limits and monitoring yourself.
 
 ## Use it with your SaaS Custom Domains account
 
@@ -149,7 +137,6 @@ CI runs both on every push and once a week, so a new Express, Prisma or Node.js 
 | Prisma | 7.10.1 |
 | EJS | 7.0.2 |
 | Node.js | 24 (also 26) |
-| Caddy | 2 |
 
 Last checked: 2026-10-28.
 

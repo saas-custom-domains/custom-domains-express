@@ -55,10 +55,10 @@ describe('routing by hostname', () => {
   })
 
   it('keeps app routes off custom domains and tenant routes off the app', async () => {
-    const dashboard = await request(app)
-      .get('/caddy/ask?domain=status.intercom.com')
+    const webhook = await request(app)
+      .post('/webhooks/saas-domains?token=test_webhook_token')
       .set('Host', 'status.intercom.com')
-    assert.equal(dashboard.status, 404)
+    assert.equal(webhook.status, 404)
 
     const subscribe = await request(app)
       .post('/subscribe')
@@ -178,37 +178,6 @@ describe('dashboard', () => {
       .send({ host: 'Status.Intercom.com' })
     assert.equal(res.status, 422)
     assert.match(res.text, /already connected/)
-  })
-
-  it('adds, checks and removes a *.localhost domain', async () => {
-    const add = await request(app)
-      .post('/companies/2/domains')
-      .set('Host', 'localhost')
-      .type('form')
-      .send({ host: 'globex.localhost' })
-    assert.equal(add.status, 303)
-    const domain = await prisma.customDomain.findUnique({
-      where: { host: 'globex.localhost' },
-    })
-    assert.equal(domain.status, 'pending')
-
-    await request(app).post(`/domains/${domain.id}/check`).set('Host', 'localhost')
-    const page = await request(app).get('/').set('Host', 'globex.localhost:3000')
-    assert.match(page.text, /Globex status/)
-
-    await request(app).post(`/domains/${domain.id}/remove`).set('Host', 'localhost')
-    const gone = await request(app).get('/').set('Host', 'globex.localhost')
-    assert.equal(gone.status, 404)
-  })
-})
-
-describe('caddy ask', () => {
-  it('only approves active domains', async () => {
-    const ask = (domain) =>
-      request(app).get(`/caddy/ask?domain=${domain}`).set('Host', 'localhost')
-    assert.equal((await ask('status.intercom.com')).status, 200)
-    assert.equal((await ask('status.globex.com')).status, 404)
-    assert.equal((await ask('evil.example')).status, 404)
   })
 })
 

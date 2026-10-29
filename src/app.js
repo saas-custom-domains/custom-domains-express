@@ -16,9 +16,9 @@ export function verifyProxyToken(req, res, next) {
   next()
 }
 
-// Who may set X-Forwarded-*. Never `true`: any client could then pick
-// req.hostname with X-Forwarded-Host. "loopback" fits Caddy on the
-// same machine; addresses, subnets or a hop count ("1") work too.
+// Who may set X-Forwarded-*: your load balancer, by address or
+// subnet, "loopback" or a hop count ("1"). Never `true`: any client
+// could then pick req.hostname with X-Forwarded-Host.
 function trustProxySetting(value = 'loopback') {
   return /^\d+$/.test(value) ? Number(value) : value
 }

@@ -1,7 +1,7 @@
 import { domainToASCII } from 'node:url'
 
 // Every hostname your own traffic arrives on, including internal
-// names your platform, webhooks or Caddy use to reach the app.
+// names your platform or webhooks use to reach the app.
 export const APP_HOSTS = new Set(
   (process.env.APP_HOSTS ?? 'localhost')
     .split(',')

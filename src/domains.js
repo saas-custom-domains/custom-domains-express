@@ -1,11 +1,6 @@
 import { prisma } from './db.js'
-import { pointsToUs } from './dns-check.js'
 import { normalizeHost } from './hosts.js'
 import { saasDomains } from './saas-domains.js'
-
-// "saascustomdomains" (the default), or "caddy" if you run the proxy
-const provider = process.env.DOMAINS_PROVIDER ?? 'saascustomdomains'
-const managed = provider === 'saascustomdomains'
 
 // A problem the user can fix, shown next to the form
 export class DomainError extends Error {}
@@ -30,7 +25,6 @@ export async function addCustomDomain(
     if (err.code !== 'P2002') throw err
     throw new DomainError(`${host} is already connected.`)
   }
-  if (!managed) return domain
 
   try {
     const created = await saasDomains.createDomain(host, {
@@ -49,28 +43,19 @@ export async function addCustomDomain(
   }
 }
 
+// Asks the API to check the DNS records right away
 export async function checkDns(domain) {
-  let dnsStatus // 'valid', 'pending' or 'invalid'
-  if (managed && domain.providerUuid) {
-    const res = await saasDomains.verifyDns(domain.providerUuid)
-    dnsStatus = res.dns_status
-  } else {
-    const ok = await pointsToUs(domain.host)
-    dnsStatus = ok ? 'valid' : 'invalid'
-  }
-  if (dnsStatus === 'valid') {
+  const res = await saasDomains.verifyDns(domain.providerUuid)
+  if (res.dns_status === 'valid') {
     await prisma.customDomain.update({
       where: { id: domain.id },
-      // Your own Caddy issues the certificate on the first request
-      data: { status: 'active', ...(!managed && { httpsReady: true }) },
+      data: { status: 'active' },
     })
   }
-  return dnsStatus
+  return res.dns_status // 'valid', 'pending' or 'invalid'
 }
 
 export async function removeCustomDomain(domain) {
-  if (managed && domain.providerUuid) {
-    await saasDomains.deleteDomain(domain.providerUuid)
-  }
+  await saasDomains.deleteDomain(domain.providerUuid)
   await prisma.customDomain.delete({ where: { id: domain.id } })
 }

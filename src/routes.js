@@ -9,7 +9,7 @@ import {
 import { safeEqual } from './safe-equal.js'
 import { SaasDomainsError } from './saas-domains.js'
 
-// Your own app: the dashboard, Caddy's ask endpoint and webhooks.
+// Your own app: the dashboard and the webhook endpoint.
 // Only reachable on APP_HOSTS (see custom-domains.js).
 export const appRoutes = express.Router()
 
@@ -72,16 +72,6 @@ appRoutes.post('/domains/:id/check', findDomain, async (req, res) => {
 appRoutes.post('/domains/:id/remove', findDomain, async (req, res) => {
   await removeCustomDomain(req.domain)
   res.redirect(303, '/')
-})
-
-// Caddy asks before issuing a certificate on demand
-// (DOMAINS_PROVIDER=caddy): 200 = go ahead, anything else = refuse.
-appRoutes.get('/caddy/ask', async (req, res) => {
-  const host = String(req.query.domain ?? '').toLowerCase()
-  const known = await prisma.customDomain.findFirst({
-    where: { host, status: 'active' },
-  })
-  res.sendStatus(known ? 200 : 404)
 })
 
 // Webhooks from SaaS Custom Domains.

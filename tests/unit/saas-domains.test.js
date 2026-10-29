@@ -15,6 +15,10 @@ const api = createServer((req, res) => {
       res.statusCode = 400
       return res.end('{"error":"Host has already been taken","error_code":"host_taken"}')
     }
+    if (req.url.endsWith('/verify_dns_records')) {
+      res.statusCode = 200
+      return res.end('{"dns_status":"valid"}')
+    }
     if (req.method === 'DELETE') {
       res.statusCode = 404
       return res.end('{"error":"Custom domain not found.","error_code":"not_found"}')
@@ -27,7 +31,6 @@ const api = createServer((req, res) => {
 let domains, prisma, company
 before(async () => {
   await new Promise((resolve) => api.listen(0, '127.0.0.1', resolve))
-  process.env.DOMAINS_PROVIDER = 'saascustomdomains'
   process.env.SCD_API_URL = `http://127.0.0.1:${api.address().port}`
   process.env.SCD_ACCOUNT_UUID = 'acc'
   process.env.SCD_UPSTREAM_UUID = 'up'
@@ -38,7 +41,7 @@ before(async () => {
 })
 after(() => api.close())
 
-describe('with SaaS Custom Domains', () => {
+describe('domains through the API', () => {
   it('registers the domain and keeps its uuid', async () => {
     const domain = await domains.addCustomDomain(company, 'status.example.com')
     assert.equal(domain.providerUuid, 'domain_1')
@@ -62,6 +65,19 @@ describe('with SaaS Custom Domains', () => {
       where: { host: 'taken.example.com' },
     })
     assert.equal(row, null)
+  })
+
+  it('marks a domain active when the API finds its DNS records', async () => {
+    const domain = await prisma.customDomain.findUnique({
+      where: { host: 'status.example.com' },
+    })
+    assert.equal(domain.status, 'pending')
+    assert.equal(await domains.checkDns(domain), 'valid')
+    assert.match(calls.at(-1).url, /custom_domains\/domain_\d+\/verify_dns_records$/)
+    const checked = await prisma.customDomain.findUnique({
+      where: { id: domain.id },
+    })
+    assert.equal(checked.status, 'active')
   })
 
   it('treats a 404 on delete as already removed', async () => {

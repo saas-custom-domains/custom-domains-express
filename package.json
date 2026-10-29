@@ -2,7 +2,7 @@
   "name": "custom-domains-express",
   "version": "1.0.0",
   "private": true,
-  "description": "Custom domains for a multi-tenant Express 5 app, with SaaS Custom Domains or your own Caddy",
+  "description": "Custom domains for a multi-tenant Express 5 app with SaaS Custom Domains",
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
